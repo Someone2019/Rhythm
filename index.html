@@ -4,9 +4,61 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rhythm Game</title>
-    <link rel="icon" type="image/x-icon" href="https://i.scdn.co/image/ab67616d00001e02c6391119d6ec2bf15824f53b">
+    <title>Rhythm Paradise</title>
+    <link rel="icon" type="image/png" href="eye.png?v=2">
     <style>
+        /* Overlay Container */
+        #loader-overlay {
+            position: fixed;
+            inset: 0;
+            /* Cover entire viewport */
+            background-color: #0f172a;
+            /* Dark sleek background (adjust to fit your theme) */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            /* Stay on top */
+
+            /* Smooth transition physics */
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: opacity, visibility;
+        }
+
+        /* Minimalist Smooth Spinner */
+        .loader-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #38bdf8;
+            /* Accent color */
+            border-radius: 50%;
+            animation: smooth-spin 0.9s cubic-bezier(0.53, 0.21, 0.29, 0.67) infinite;
+        }
+
+        /* Subtle exit animation for the inner loader */
+        #loader-overlay.hidden .loader-spinner {
+            transform: scale(0.8);
+            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.4s ease-out;
+        }
+
+        /* The state that hides the loader */
+        #loader-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        @keyframes smooth-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         :root {
             --bg-dark: #040408;
             --panel-bg: rgba(10, 10, 20, 0.88);
@@ -467,6 +519,17 @@
             transform: translateZ(0);
         }
 
+        /* Idle Ambient Screen Particle Canvas */
+        #idle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 2;
+        }
+
         .modal {
             position: absolute;
             top: 0;
@@ -552,6 +615,15 @@
             color: var(--accent-cyan);
         }
 
+        table.logs-table tbody tr.log-row-clickable {
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        table.logs-table tbody tr.log-row-clickable:hover {
+            background: rgba(0, 240, 255, 0.12);
+        }
+
         .text-input {
             background: #1a1a2e;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -568,10 +640,21 @@
             accent-color: var(--accent-cyan);
             cursor: pointer;
         }
+
+        /* Analysis Chart Inline Thumbnail */
+        .log-chart-canvas {
+            vertical-align: middle;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.4);
+        }
     </style>
 </head>
 
 <body>
+    <!-- Loading Overlay -->
+    <div id="loader-overlay">
+        <div class="loader-spinner"></div>
+    </div>
     <!-- COUNTDOWN OVERLAY -->
     <div id="countdown-overlay" style="
   display: none;
@@ -587,6 +670,7 @@
   pointer-events: none;
 ">3</div>
     <div id="bg-container">
+        <canvas id="idle-canvas"></canvas>
         <video id="bg-video" playsinline muted></video>
         <div id="bg-overlay"></div>
         <div id="ambient-grid"></div>
@@ -727,7 +811,7 @@
 
     <!-- Score Logs Modal -->
     <div class="modal" id="logs-modal">
-        <div class="modal-content" style="width: 580px;">
+        <div class="modal-content" style="width: 680px;">
             <h3>Song Score History</h3>
             <div class="logs-table-container">
                 <table class="logs-table">
@@ -738,6 +822,7 @@
                             <th>Score</th>
                             <th>Max Combo</th>
                             <th>Grade</th>
+                            <th>Analysis Chart</th>
                         </tr>
                     </thead>
                     <tbody id="logs-tbody">
@@ -748,7 +833,29 @@
         </div>
     </div>
 
+    <!-- Detailed Review Modal -->
+    <div class="modal" id="review-modal" style="z-index: 110;">
+        <div class="modal-content" style="width: 500px;">
+            <h3 id="review-song-title">Performance Breakdown</h3>
+            <div id="review-details-content"
+                style="text-align: left; margin: 15px 0; font-size: 0.9rem; line-height: 1.6;">
+            </div>
+            <canvas id="review-detail-chart" width="450" height="180"
+                style="background: rgba(0,0,0,0.5); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); width: 100%;"></canvas>
+            <button class="btn" id="close-review-btn" style="margin-top: 15px; width: 100%;">Close Review</button>
+        </div>
+    </div>
+
     <script>
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loader-overlay');
+            if (loader) {
+                // Adds a tiny frame delay so the browser finishes rendering before fading out
+                requestAnimationFrame(() => {
+                    loader.classList.add('hidden');
+                });
+            }
+        });
         let KEYS = ['d', 'f', 'j', 'k'];
         const LANE_COUNT = 4;
 
@@ -773,6 +880,9 @@
         let mediaType = 'audio';
         let currentFileName = "Unknown Track";
         let keyHoldStates = [false, false, false, false];
+
+        // Detailed Stats Tracking for Analysis Charting
+        let hitStats = { perfect: 0, great: 0, miss: 0 };
 
         let currentUser = localStorage.getItem('rg_active_user') || 'Guest';
         let accounts = JSON.parse(localStorage.getItem('rg_accounts') || '["Guest"]');
@@ -818,6 +928,58 @@
         }
         window.addEventListener('resize', resizeCanvas);
 
+        // --- CRISP BLUE DRIFTING PARTICLES FOR IDLE SCREEN ---
+        const idleCanvas = document.getElementById('idle-canvas');
+        const idleCtx = idleCanvas.getContext('2d');
+        let idleParticles = [];
+
+        function resizeIdleCanvas() {
+            idleCanvas.width = window.innerWidth;
+            idleCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeIdleCanvas);
+        resizeIdleCanvas();
+
+        function initIdleParticles() {
+            idleParticles = [];
+            for (let i = 0; i < 60; i++) {
+                idleParticles.push({
+                    x: Math.random() * idleCanvas.width,
+                    y: Math.random() * idleCanvas.height,
+                    radius: Math.random() * 2.5 + 1.2,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: -Math.random() * 0.5 - 0.2,
+                    alpha: Math.random() * 0.6 + 0.2,
+                    pulse: Math.random() * 0.02
+                });
+            }
+        }
+        initIdleParticles();
+
+        function renderIdleParticles() {
+            idleCtx.clearRect(0, 0, idleCanvas.width, idleCanvas.height);
+            if (!isPlaying) {
+                idleParticles.forEach(p => {
+                    idleCtx.beginPath();
+                    idleCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    idleCtx.fillStyle = `rgba(0, 240, 255, ${p.alpha})`;
+                    idleCtx.shadowBlur = 12;
+                    idleCtx.shadowColor = "#00f0ff";
+                    idleCtx.fill();
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha += Math.sin(Date.now() * p.pulse) * 0.005;
+
+                    if (p.y < -10) p.y = idleCanvas.height + 10;
+                    if (p.x < -10) p.x = idleCanvas.width + 10;
+                    if (p.x > idleCanvas.width + 10) p.x = -10;
+                });
+            }
+            requestAnimationFrame(renderIdleParticles);
+        }
+        renderIdleParticles();
+
         const keybindModal = document.getElementById('keybind-modal');
         const openKeybindsBtn = document.getElementById('open-keybinds-btn');
         const closeKeybindsBtn = document.getElementById('close-keybinds-btn');
@@ -841,6 +1003,9 @@
         const closeLogsBtn = document.getElementById('close-logs-btn');
         const logsTbody = document.getElementById('logs-tbody');
 
+        const reviewModal = document.getElementById('review-modal');
+        const closeReviewBtn = document.getElementById('close-review-btn');
+
         openKeybindsBtn.addEventListener('click', () => { resizeCanvas(); keybindModal.style.display = 'flex'; });
         closeKeybindsBtn.addEventListener('click', () => {
             config.vfxEnabled = optVfx.checked;
@@ -859,6 +1024,7 @@
 
         openLogsBtn.addEventListener('click', () => { renderLogsUI(); logsModal.style.display = 'flex'; });
         closeLogsBtn.addEventListener('click', () => logsModal.style.display = 'none');
+        closeReviewBtn.addEventListener('click', () => reviewModal.style.display = 'none');
 
         function renderAccountUI() {
             userSelect.innerHTML = '';
@@ -902,29 +1068,85 @@
                 score: finalScore,
                 maxCombo: maxC,
                 grade: grade,
+                stats: { ...hitStats },
                 date: new Date().toLocaleDateString()
             });
 
             localStorage.setItem('rg_song_logs', JSON.stringify(songLogs));
         }
 
+        function drawAnalysisChart(canvasEl, stats) {
+            const cCtx = canvasEl.getContext('2d');
+            const w = canvasEl.width;
+            const h = canvasEl.height;
+            cCtx.clearRect(0, 0, w, h);
+
+            const total = (stats.perfect || 0) + (stats.great || 0) + (stats.miss || 0) || 1;
+            const perfW = ((stats.perfect || 0) / total) * w;
+            const greatW = ((stats.great || 0) / total) * w;
+            const missW = ((stats.miss || 0) / total) * w;
+
+            cCtx.fillStyle = '#00ffcc';
+            cCtx.fillRect(0, 0, perfW, h);
+
+            cCtx.fillStyle = '#ffbb00';
+            cCtx.fillRect(perfW, 0, greatW, h);
+
+            cCtx.fillStyle = '#ff0055';
+            cCtx.fillRect(perfW + greatW, 0, missW, h);
+        }
+
+        function openDetailedReview(log) {
+            document.getElementById('review-song-title').textContent = `${log.song} Review`;
+            const stats = log.stats || { perfect: 0, great: 0, miss: 0 };
+            const total = stats.perfect + stats.great + stats.miss || 1;
+            const accuracy = (((stats.perfect * 100) + (stats.great * 70)) / (total * 100) * 100).toFixed(1);
+
+            document.getElementById('review-details-content').innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span><strong>Grade:</strong> <span style="font-size:1.5rem; color:var(--accent-cyan); font-weight:bold;">${log.grade}</span></span>
+                    <span><strong>Accuracy:</strong> ${accuracy}%</span>
+                </div>
+                <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin-bottom:10px;">
+                <p><strong>Difficulty:</strong> ${log.diff}</p>
+                <p><strong>Final Score:</strong> ${log.score}</p>
+                <p><strong>Max Combo:</strong> ${log.maxCombo}x</p>
+                <p><strong>Perfect Hits:</strong> <span style="color:#00ffcc">${stats.perfect}</span></p>
+                <p><strong>Great Hits:</strong> <span style="color:#ffbb00">${stats.great}</span></p>
+                <p><strong>Misses:</strong> <span style="color:#ff0055">${stats.miss}</span></p>
+            `;
+
+            const reviewChartCanvas = document.getElementById('review-detail-chart');
+            drawAnalysisChart(reviewChartCanvas, stats);
+
+            reviewModal.style.display = 'flex';
+        }
+
         function renderLogsUI() {
             logsTbody.innerHTML = '';
             const logs = songLogs[currentUser] || [];
             if (logs.length === 0) {
-                logsTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No score logs for ${currentUser}</td></tr>`;
+                logsTbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No score logs for ${currentUser}</td></tr>`;
                 return;
             }
-            logs.forEach(log => {
+            logs.forEach((log, index) => {
                 const tr = document.createElement('tr');
+                tr.className = 'log-row-clickable';
                 tr.innerHTML = `
           <td>${log.song}</td>
           <td>${log.diff}</td>
           <td>${log.score}</td>
           <td>${log.maxCombo}</td>
           <td style="font-weight:bold; color:var(--accent-cyan);">${log.grade}</td>
+          <td><canvas class="log-chart-canvas" id="log-chart-${index}" width="80" height="14"></canvas></td>
         `;
+                tr.addEventListener('click', () => openDetailedReview(log));
                 logsTbody.appendChild(tr);
+
+                setTimeout(() => {
+                    const canvasEl = document.getElementById(`log-chart-${index}`);
+                    if (canvasEl) drawAnalysisChart(canvasEl, log.stats || { perfect: 0, great: 0, miss: 0 });
+                }, 10);
             });
         }
 
@@ -1014,9 +1236,11 @@
 
                 if (minDelta <= 50) {
                     triggerJudgement('PERFECT');
+                    hitStats.perfect++;
                     score += (isFeverActive ? 600 : 300);
                 } else {
                     triggerJudgement('GREAT');
+                    hitStats.great++;
                     score += (isFeverActive ? 300 : 150);
                 }
 
@@ -1029,6 +1253,7 @@
             } else {
                 // === SPAM PENALTY (Pressed key with nothing in hitbox) ===
                 triggerJudgement('MISS');
+                hitStats.miss++;
 
                 // Deduct 100 points (clamped to 0 minimum)
                 score = Math.max(0, score - 100);
@@ -1212,7 +1437,7 @@
             resizeCanvas();
             document.querySelectorAll('.note, .hold-trail').forEach(n => n.remove());
 
-            // Reset Game State
+            // Reset Game State & Hit Stats
             score = 0;
             combo = 0;
             maxCombo = 0;
@@ -1221,6 +1446,7 @@
             isFeverActive = false;
             particles = [];
             hitRipples = [];
+            hitStats = { perfect: 0, great: 0, miss: 0 };
             keyHoldStates = [false, false, false, false];
             updateStats();
 
@@ -1289,36 +1515,36 @@
             return ((mediaType === 'video' && !bgVideo.paused) ? bgVideo.currentTime * 1000 : (performance.now() - startTime)) * speed;
         }
 
-        /* Spawn High Energy Visual Particles */
+        /* Spawn Polished Calm & Lively Visual Effects */
         function spawnParticles(laneIndex, colorHex) {
             if (!config.vfxEnabled || config.particleQuality === 'low') return;
             const laneWidth = canvas.width / LANE_COUNT;
             const originX = laneIndex * laneWidth + laneWidth / 2;
             const originY = canvas.height - 70;
 
-            const count = config.particleQuality === 'high' ? 22 : 10;
+            const count = config.particleQuality === 'high' ? 12 : 6;
             for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 8 + 2;
+                const angle = (Math.random() * Math.PI) - Math.PI;
+                const speed = Math.random() * 3 + 1;
                 particles.push({
                     x: originX,
                     y: originY,
                     vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed - 2,
-                    radius: Math.random() * 4 + 2,
+                    vy: Math.sin(angle) * speed - 1,
+                    radius: Math.random() * 3 + 2,
                     color: colorHex,
-                    alpha: 1,
-                    decay: Math.random() * 0.03 + 0.02
+                    alpha: 0.9,
+                    decay: Math.random() * 0.015 + 0.01
                 });
             }
 
             hitRipples.push({
                 x: originX,
                 y: originY,
-                radius: 10,
-                maxRadius: 45,
+                radius: 5,
+                maxRadius: 35,
                 color: colorHex,
-                alpha: 0.8
+                alpha: 0.6
             });
 
         }
@@ -1327,22 +1553,22 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (!config.vfxEnabled) return;
 
-            // Draw Ripples
+            // Draw Smooth Soft Ripples
             for (let i = hitRipples.length - 1; i >= 0; i--) {
                 let r = hitRipples[i];
                 ctx.beginPath();
                 ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
                 ctx.strokeStyle = r.color;
                 ctx.globalAlpha = r.alpha;
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 2;
                 ctx.stroke();
 
-                r.radius += 3.5;
-                r.alpha -= 0.05;
+                r.radius += 2.0;
+                r.alpha -= 0.03;
                 if (r.alpha <= 0) hitRipples.splice(i, 1);
             }
 
-            // Draw Particles
+            // Draw Soft Drifting Hit Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 ctx.beginPath();
@@ -1404,7 +1630,7 @@
                             addFever(0.1);
                             updateStats();
 
-                            if (Math.random() < 0.3) {
+                            if (Math.random() < 0.15) {
                                 const laneColors = ['#ff0055', '#00e5ff', '#ffb700', '#00ff66'];
                                 spawnParticles(note.lane, laneColors[note.lane]);
                             }
@@ -1417,6 +1643,7 @@
                                 note.element = null;
                                 note.trailEl = null;
                                 triggerJudgement('PERFECT');
+                                hitStats.perfect++;
                             }
                         } else {
                             note.element.style.transform = `translate3d(0, ${noteHeadY}px, 0)`;
@@ -1451,6 +1678,7 @@
                     if (note.element) { note.element.remove(); note.element = null; }
                     if (note.trailEl) { note.trailEl.remove(); note.trailEl = null; }
                     triggerJudgement('MISS');
+                    hitStats.miss++;
                     combo = 0;
                     health = Math.max(0, health - 12);
                     updateStats();
@@ -1498,9 +1726,11 @@
 
                 if (minDelta <= 50) {
                     triggerJudgement('PERFECT');
+                    hitStats.perfect++;
                     score += (isFeverActive ? 600 : 300);
                 } else {
                     triggerJudgement('GREAT');
+                    hitStats.great++;
                     score += (isFeverActive ? 300 : 150);
                 }
 
@@ -1519,6 +1749,7 @@
                     note.holding = false;
                     if (songTime < (note.time + note.duration - 100)) {
                         triggerJudgement('MISS');
+                        hitStats.miss++;
                         combo = 0;
                         note.completed = true;
                         if (note.element) { note.element.remove(); note.element = null; }
