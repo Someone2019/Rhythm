@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rhythm Game</title>
+    <link rel="icon" type="image/x-icon" href="https://i.scdn.co/image/ab67616d00001e02c6391119d6ec2bf15824f53b">
+    <style>
+        :root {
+            --bg-dark: #040408;
+            --panel-bg: rgba(10, 10, 20, 0.88);
+            --accent-pink: #ff007f;
+            --accent-cyan: #00f0ff;
+            --accent-yellow: #ffb700;
+            --accent-green: #00ff66;
+            --fever-glow: #00f0ff;
+            --bg-dim: 0.3;
+            --shake-intensity: 1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #bg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            overflow: hidden;
+            transition: filter 0.1s ease;
+
+            background-image: url('https://4kwallpapers.com/images/walls/thumbs_3t/22725.jpg');
+
+
+        }
+
+        #bg-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%) translateZ(0);
+            object-fit: cover;
+            z-index: 1;
+            display: none;
+            will-change: transform;
+        }
+
+        #bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(4, 4, 8, var(--bg-dim));
+            z-index: 2;
+            transition: background 0.2s ease;
+        }
+
+        /* Ambient Hype Pulsing Grid */
+        #ambient-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+            background-image: linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.3;
+            transition: opacity 0.1s ease;
+        }
+
+        header {
+            position: relative;
+            z-index: 10;
+            background: var(--panel-bg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            width: 100%;
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        .controls-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn,
+        select.select-btn {
+            background: rgba(255, 255, 255, 0.06);
+            color: #e0e0e0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            transition: all 0.2s ease;
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn:hover,
+        select.select-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: var(--accent-cyan);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+        }
+
+        select.select-btn option {
+            background: #12121e;
+            color: #fff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        button.action-btn {
+            background: linear-gradient(135deg, var(--accent-pink), #7928ca);
+            border: none;
+            color: white;
+            padding: 7px 18px;
+            border-radius: 6px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.85rem;
+            box-shadow: 0 0 12px rgba(255, 0, 127, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        button.action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 22px rgba(255, 0, 127, 0.8);
+        }
+
+        .stats {
+            display: flex;
+            gap: 12px;
+            font-family: monospace;
+            font-size: 1rem;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 3px solid var(--accent-cyan);
+        }
+
+        .stat-box.fever-active {
+            border-left-color: var(--accent-pink);
+            animation: statPulse 0.4s infinite alternate;
+        }
+
+        @keyframes statPulse {
+            0% {
+                box-shadow: 0 0 5px rgba(255, 0, 127, 0.5);
+            }
+
+            100% {
+                box-shadow: 0 0 20px rgba(255, 0, 127, 0.9);
+            }
+        }
+
+        #bars-container {
+            position: relative;
+            width: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #health-bar-wrap,
+        #fever-bar-wrap {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff0055, var(--accent-cyan));
+            transition: width 0.1s linear;
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+
+        #fever-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ffb700, var(--accent-pink));
+            transition: width 0.1s linear;
+            box-shadow: 0 0 8px var(--accent-pink);
+        }
+
+        main {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: calc(100vh - 60px);
+            width: 100%;
+            padding-bottom: 12px;
+        }
+
+        #game-stage {
+            position: relative;
+            width: 380px;
+            height: 94%;
+            background: rgba(8, 8, 16, 0.82);
+            border-left: 2px solid rgba(255, 255, 255, 0.15);
+            border-right: 2px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
+            display: flex;
+            overflow: hidden;
+            border-radius: 6px 6px 0 0;
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        #game-stage.fever-mode {
+            border-color: var(--accent-pink);
+            box-shadow: 0 0 35px var(--accent-pink), inset 0 0 20px rgba(255, 0, 127, 0.4);
+        }
+
+        #game-stage.shake {
+            animation: stageShake 0.08s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        @keyframes stageShake {
+
+            10%,
+            90% {
+                transform: translate3d(calc(-3px * var(--shake-intensity)), 0, 0);
+            }
+
+            30%,
+            70% {
+                transform: translate3d(calc(4px * var(--shake-intensity)), 0, 0);
+            }
+
+            50% {
+                transform: translate3d(calc(-4px * var(--shake-intensity)), 0, 0);
+            }
+        }
+
+        .lane {
+            flex: 1;
+            height: 100%;
+            border-right: 1px dashed rgba(255, 255, 255, 0.08);
+            position: relative;
+            transition: background-color 0.08s ease;
+        }
+
+        .lane:last-child {
+            border-right: none;
+        }
+
+        .lane.flash-0 {
+            background: linear-gradient(180deg, transparent 0%, rgba(255, 0, 85, 0.35) 100%);
+        }
+
+        .lane.flash-1 {
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 229, 255, 0.35) 100%);
+        }
+
+        .lane.flash-2 {
+            background: linear-gradient(180deg, transparent 0%, rgba(255, 183, 0, 0.35) 100%);
+        }
+
+        .lane.flash-3 {
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 255, 102, 0.35) 100%);
+        }
+
+        .hit-zone {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            border-top: 2px solid var(--accent-cyan);
+            border-bottom: 2px solid var(--accent-cyan);
+            background: rgba(0, 240, 255, 0.08);
+            display: flex;
+            z-index: 2;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+        }
+
+        .key-cap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.3rem;
+            color: rgba(255, 255, 255, 0.5);
+            border-right: 1px solid rgba(0, 240, 255, 0.15);
+            text-transform: uppercase;
+            transition: background-color 0.05s ease, color 0.05s ease;
+        }
+
+        .key-cap:last-child {
+            border-right: none;
+        }
+
+        .key-cap.active {
+            background: rgba(255, 255, 255, 0.3);
+            color: #fff;
+            box-shadow: inset 0 0 18px var(--accent-cyan);
+        }
+
+        .note {
+            position: absolute;
+            width: 84%;
+            left: 8%;
+            height: 18px;
+            border-radius: 4px;
+            box-shadow: 0 0 16px currentColor;
+            z-index: 5;
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        .hold-trail {
+            position: absolute;
+            width: 36%;
+            left: 32%;
+            background: currentColor;
+            opacity: 0.8;
+            border-radius: 4px;
+            z-index: 3;
+            transform: translateZ(0);
+            will-change: transform, height;
+            box-shadow: 0 0 12px currentColor;
+        }
+
+        .lane-0 .note,
+        .lane-0 .hold-trail {
+            background-color: #ff0055;
+            color: #ff0055;
+        }
+
+        .lane-1 .note,
+        .lane-1 .hold-trail {
+            background-color: #00e5ff;
+            color: #00e5ff;
+        }
+
+        .lane-2 .note,
+        .lane-2 .hold-trail {
+            background-color: #ffb700;
+            color: #ffb700;
+        }
+
+        .lane-3 .note,
+        .lane-3 .hold-trail {
+            background-color: #00ff66;
+            color: #00ff66;
+        }
+
+        #feedback-container {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        #judgement {
+            font-size: 2.4rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            opacity: 0;
+            transition: transform 0.08s ease-out, opacity 0.18s ease-out;
+        }
+
+        #judgement.perfect {
+            color: #00ffcc;
+            text-shadow: 0 0 25px #00ffcc;
+        }
+
+        #judgement.great {
+            color: #ffbb00;
+            text-shadow: 0 0 25px #ffbb00;
+        }
+
+        #judgement.miss {
+            color: #ff0055;
+            text-shadow: 0 0 25px #ff0055;
+        }
+
+        #combo-pop {
+            font-size: 2.8rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 22px var(--accent-cyan);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: transform 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.15s;
+        }
+
+        #combo-pop.active {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        #combo-label {
+            font-size: 0.75rem;
+            letter-spacing: 4px;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+        }
+
+        #effect-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            transform: translateZ(0);
+        }
+
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #121220;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 24px;
+            width: 460px;
+            max-width: 90vw;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85);
+            text-align: center;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 16px;
+            font-size: 1.2rem;
+            color: var(--accent-cyan);
+        }
+
+        .keybind-row,
+        .account-row,
+        .opt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+
+        .keybind-btn {
+            background: #252538;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            min-width: 60px;
+            text-transform: uppercase;
+        }
+
+        .keybind-btn.binding {
+            border-color: var(--accent-pink);
+            background: var(--accent-pink);
+            color: #fff;
+        }
+
+        .logs-table-container {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        table.logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        table.logs-table th,
+        table.logs-table td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        table.logs-table th {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--accent-cyan);
+        }
+
+        .text-input {
+            background: #1a1a2e;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            width: 100%;
+            margin-bottom: 12px;
+            outline: none;
+        }
+
+        /* Slider styling for settings */
+        input[type="range"] {
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- COUNTDOWN OVERLAY -->
+    <div id="countdown-overlay" style="
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 6rem;
+  font-weight: 900;
+  color: #00f0ff;
+  text-shadow: 0 0 35px #00f0ff, 0 0 10px #ffffff;
+  z-index: 50;
+  pointer-events: none;
+">3</div>
+    <div id="bg-container">
+        <video id="bg-video" playsinline muted></video>
+        <div id="bg-overlay"></div>
+        <div id="ambient-grid"></div>
+    </div>
+
+    <header>
+        <div class="controls-group">
+            <label class="btn">
+                Song / Video
+                <input type="file" id="media-input" accept="audio/*,video/*">
+            </label>
+            <label class="btn">
+                Background
+                <input type="file" id="bg-input" accept="image/*">
+            </label>
+
+            <button class="btn" id="open-keybinds-btn">Settings</button>
+            <button class="btn" id="open-account-btn">Profiles</button>
+            <button class="btn" id="open-logs-btn"> Score Logs</button>
+
+            <select id="difficulty-select" class="select-btn">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+                <option value="extreme">Extreme</option>
+            </select>
+
+            <select id="speed-select" class="select-btn">
+                <option value="0.75">0.75x Speed</option>
+                <option value="1.0" selected>1.0x Speed</option>
+                <option value="1.25">1.25x Speed</option>
+                <option value="1.5">1.50x Nightcore</option>
+            </select>
+
+            <button class="action-btn" id="start-btn">Start Game</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box" id="fever-box">Multiplier: <span id="multiplier-val">1x</span></div>
+            <div class="stat-box">Score: <span id="score">0</span></div>
+            <div class="stat-box">Combo: <span id="combo">0</span></div>
+        </div>
+    </header>
+
+    <div id="bars-container">
+        <div id="health-bar-wrap">
+            <div id="health-bar"></div>
+        </div>
+        <div id="fever-bar-wrap">
+            <div id="fever-bar"></div>
+        </div>
+    </div>
+
+    <main>
+        <div id="game-stage">
+            <canvas id="effect-canvas"></canvas>
+
+            <div id="feedback-container">
+                <div id="judgement">PERFECT</div>
+                <div id="combo-pop">0</div>
+                <div id="combo-label">COMBO</div>
+            </div>
+
+            <div class="lane lane-0" id="lane-0"></div>
+            <div class="lane lane-1" id="lane-1"></div>
+            <div class="lane lane-2" id="lane-2"></div>
+            <div class="lane lane-3" id="lane-3"></div>
+
+            <div class="hit-zone">
+                <div class="key-cap" id="key-0">D</div>
+                <div class="key-cap" id="key-1">F</div>
+                <div class="key-cap" id="key-2">J</div>
+                <div class="key-cap" id="key-3">K</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings & Keybinds Modal -->
+    <div class="modal" id="keybind-modal">
+        <div class="modal-content">
+            <h3>Game Settings & Keybinds</h3>
+
+            <div class="keybind-row"><span>Lane 1:</span><button class="keybind-btn" data-lane="0">D</button></div>
+            <div class="keybind-row"><span>Lane 2:</span><button class="keybind-btn" data-lane="1">F</button></div>
+            <div class="keybind-row"><span>Lane 3:</span><button class="keybind-btn" data-lane="2">J</button></div>
+            <div class="keybind-row"><span>Lane 4:</span><button class="keybind-btn" data-lane="3">K</button></div>
+
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 12px 0;">
+
+            <div class="opt-row">
+                <span>Canvas VFX Engine:</span>
+                <input type="checkbox" id="opt-vfx" checked>
+            </div>
+            <div class="opt-row">
+                <span>Particle Quality:</span>
+                <select id="opt-particles" class="select-btn">
+                    <option value="high" selected>High (Explosions & Sparks)</option>
+                    <option value="medium">Medium (Sparks Only)</option>
+                    <option value="low">Low (Disabled)</option>
+                </select>
+            </div>
+            <div class="opt-row">
+                <span>Controlled Flashing Lights:</span>
+                <input type="checkbox" id="opt-flashing" checked>
+            </div>
+            <div class="opt-row">
+                <span>Screen Shake Intensity:</span>
+                <input type="range" id="opt-shake" min="0" max="2" step="0.5" value="1">
+            </div>
+            <div class="opt-row">
+                <span>Background Dimming:</span>
+                <input type="range" id="opt-bgdim" min="0.2" max="0.95" step="0.05" value="0.3">
+            </div>
+
+            <button class="btn" id="close-keybinds-btn" style="margin-top: 15px; width: 100%;">Save & Close</button>
+        </div>
+    </div>
+
+    <!-- Accounts Modal -->
+    <div class="modal" id="account-modal">
+        <div class="modal-content">
+            <h3>Account Profile</h3>
+            <div style="margin-bottom: 12px; text-align: left;">
+                <label>Active Account:</label>
+                <select id="user-select" class="select-btn" style="width: 100%; margin-top: 6px;">
+                    <option value="Guest">Guest</option>
+                </select>
+            </div>
+            <div style="text-align: left;">
+                <label>Create New Account:</label>
+                <input type="text" id="new-user-input" class="text-input" placeholder="Enter profile name..."
+                    style="margin-top:6px;">
+                <button class="btn" id="create-user-btn" style="width: 100%;">Create Account</button>
+            </div>
+            <button class="btn" id="close-account-btn" style="margin-top: 15px; width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <!-- Score Logs Modal -->
+    <div class="modal" id="logs-modal">
+        <div class="modal-content" style="width: 580px;">
+            <h3>Song Score History</h3>
+            <div class="logs-table-container">
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>Song</th>
+                            <th>Diff</th>
+                            <th>Score</th>
+                            <th>Max Combo</th>
+                            <th>Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-tbody">
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn" id="close-logs-btn" style="margin-top: 15px; width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let KEYS = ['d', 'f', 'j', 'k'];
+        const LANE_COUNT = 4;
+
+        const DIFFICULTIES = {
+            easy: { multiplier: 1.50, minGapMs: 350, allowDoubles: false, noteSpeed: 0.45, holdRatio: 0.15 },
+            medium: { multiplier: 1.15, minGapMs: 200, allowDoubles: false, noteSpeed: 0.55, holdRatio: 0.25 },
+            hard: { multiplier: 0.85, minGapMs: 120, allowDoubles: false, noteSpeed: 0.65, holdRatio: 0.35 },
+            extreme: { multiplier: 0.65, minGapMs: 80, allowDoubles: true, noteSpeed: 0.75, holdRatio: 0.40 }
+        };
+
+        let audioCtx, audioBuffer, audioSource, gainNode;
+        let isPlaying = false;
+        let startTime = 0;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let health = 100;
+        let feverEnergy = 0;
+        let isFeverActive = false;
+
+        let chart = [];
+        let mediaType = 'audio';
+        let currentFileName = "Unknown Track";
+        let keyHoldStates = [false, false, false, false];
+
+        let currentUser = localStorage.getItem('rg_active_user') || 'Guest';
+        let accounts = JSON.parse(localStorage.getItem('rg_accounts') || '["Guest"]');
+        let songLogs = JSON.parse(localStorage.getItem('rg_song_logs') || '{}');
+
+        // Optimization & VFX Settings
+        let config = {
+            vfxEnabled: true,
+            particleQuality: 'high',
+            flashingEnabled: true,
+            shakeIntensity: 1,
+            bgDim: 0.3
+        };
+
+        const bgContainer = document.getElementById('bg-container');
+        const bgVideo = document.getElementById('bg-video');
+        const bgOverlay = document.getElementById('bg-overlay');
+        const ambientGrid = document.getElementById('ambient-grid');
+        const mediaInput = document.getElementById('media-input');
+        const bgInput = document.getElementById('bg-input');
+        const difficultySelect = document.getElementById('difficulty-select');
+        const speedSelect = document.getElementById('speed-select');
+        const startBtn = document.getElementById('start-btn');
+        const scoreEl = document.getElementById('score');
+        const comboEl = document.getElementById('combo');
+        const healthBar = document.getElementById('health-bar');
+        const feverBar = document.getElementById('fever-bar');
+        const feverBox = document.getElementById('fever-box');
+        const multiplierVal = document.getElementById('multiplier-val');
+        const judgementEl = document.getElementById('judgement');
+        const comboPopEl = document.getElementById('combo-pop');
+        const gameStage = document.getElementById('game-stage');
+
+        // Canvas & VFX System setup
+        const canvas = document.getElementById('effect-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let hitRipples = [];
+
+        function resizeCanvas() {
+            canvas.width = gameStage.clientWidth;
+            canvas.height = gameStage.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        const keybindModal = document.getElementById('keybind-modal');
+        const openKeybindsBtn = document.getElementById('open-keybinds-btn');
+        const closeKeybindsBtn = document.getElementById('close-keybinds-btn');
+        const keybindBtns = document.querySelectorAll('.keybind-btn');
+
+        const optVfx = document.getElementById('opt-vfx');
+        const optParticles = document.getElementById('opt-particles');
+        const optFlashing = document.getElementById('opt-flashing');
+        const optShake = document.getElementById('opt-shake');
+        const optBgDim = document.getElementById('opt-bgdim');
+
+        const accountModal = document.getElementById('account-modal');
+        const openAccountBtn = document.getElementById('open-account-btn');
+        const closeAccountBtn = document.getElementById('close-account-btn');
+        const userSelect = document.getElementById('user-select');
+        const newUserInput = document.getElementById('new-user-input');
+        const createUserBtn = document.getElementById('create-user-btn');
+
+        const logsModal = document.getElementById('logs-modal');
+        const openLogsBtn = document.getElementById('open-logs-btn');
+        const closeLogsBtn = document.getElementById('close-logs-btn');
+        const logsTbody = document.getElementById('logs-tbody');
+
+        openKeybindsBtn.addEventListener('click', () => { resizeCanvas(); keybindModal.style.display = 'flex'; });
+        closeKeybindsBtn.addEventListener('click', () => {
+            config.vfxEnabled = optVfx.checked;
+            config.particleQuality = optParticles.value;
+            config.flashingEnabled = optFlashing.checked;
+            config.shakeIntensity = parseFloat(optShake.value);
+            config.bgDim = parseFloat(optBgDim.value);
+
+            document.documentElement.style.setProperty('--bg-dim', config.bgDim);
+            document.documentElement.style.setProperty('--shake-intensity', config.shakeIntensity);
+            keybindModal.style.display = 'none';
+        });
+
+        openAccountBtn.addEventListener('click', () => { renderAccountUI(); accountModal.style.display = 'flex'; });
+        closeAccountBtn.addEventListener('click', () => accountModal.style.display = 'none');
+
+        openLogsBtn.addEventListener('click', () => { renderLogsUI(); logsModal.style.display = 'flex'; });
+        closeLogsBtn.addEventListener('click', () => logsModal.style.display = 'none');
+
+        function renderAccountUI() {
+            userSelect.innerHTML = '';
+            accounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc;
+                opt.textContent = acc;
+                if (acc === currentUser) opt.selected = true;
+                userSelect.appendChild(opt);
+            });
+        }
+
+        userSelect.addEventListener('change', (e) => {
+            currentUser = e.target.value;
+            localStorage.setItem('rg_active_user', currentUser);
+        });
+
+        createUserBtn.addEventListener('click', () => {
+            const name = newUserInput.value.trim();
+            if (name && !accounts.includes(name)) {
+                accounts.push(name);
+                currentUser = name;
+                localStorage.setItem('rg_accounts', JSON.stringify(accounts));
+                localStorage.setItem('rg_active_user', currentUser);
+                newUserInput.value = '';
+                renderAccountUI();
+            }
+        });
+
+        function saveScoreLog(songTitle, diff, finalScore, maxC) {
+            if (!songLogs[currentUser]) songLogs[currentUser] = [];
+            let grade = 'F';
+            if (finalScore > 50000) grade = 'S';
+            else if (finalScore > 30000) grade = 'A';
+            else if (finalScore > 15000) grade = 'B';
+            else if (finalScore > 5000) grade = 'C';
+
+            songLogs[currentUser].unshift({
+                song: songTitle,
+                diff: diff.toUpperCase(),
+                score: finalScore,
+                maxCombo: maxC,
+                grade: grade,
+                date: new Date().toLocaleDateString()
+            });
+
+            localStorage.setItem('rg_song_logs', JSON.stringify(songLogs));
+        }
+
+        function renderLogsUI() {
+            logsTbody.innerHTML = '';
+            const logs = songLogs[currentUser] || [];
+            if (logs.length === 0) {
+                logsTbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No score logs for ${currentUser}</td></tr>`;
+                return;
+            }
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+          <td>${log.song}</td>
+          <td>${log.diff}</td>
+          <td>${log.score}</td>
+          <td>${log.maxCombo}</td>
+          <td style="font-weight:bold; color:var(--accent-cyan);">${log.grade}</td>
+        `;
+                logsTbody.appendChild(tr);
+            });
+        }
+
+        let activeBindingIndex = null;
+        keybindBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                keybindBtns.forEach(b => b.classList.remove('binding'));
+                btn.classList.add('binding');
+                activeBindingIndex = parseInt(btn.getAttribute('data-lane'));
+            });
+        });
+
+        // --- UPDATED KEYDOWN LISTENER WITH SPAM PREVENTION ---
+        window.addEventListener('keydown', (e) => {
+            if (activeBindingIndex !== null) {
+                const newKey = e.key.toLowerCase();
+                if (newKey !== 'escape') {
+                    KEYS[activeBindingIndex] = newKey;
+                    document.getElementById(`key-${activeBindingIndex}`).textContent = newKey.toUpperCase();
+                    keybindBtns[activeBindingIndex].textContent = newKey.toUpperCase();
+                }
+                keybindBtns[activeBindingIndex].classList.remove('binding');
+                activeBindingIndex = null;
+                return;
+            }
+
+            const keyIndex = KEYS.indexOf(e.key.toLowerCase());
+            if (keyIndex === -1 || !isPlaying || e.repeat) return;
+
+            keyHoldStates[keyIndex] = true;
+            document.getElementById(`key-${keyIndex}`).classList.add('active');
+            flashLane(keyIndex);
+
+            // Attempt to hit a note OR punish spamming
+            processKeyPress(keyIndex);
+        });
+        // Function to manually stop/cancel a run mid-song
+        function stopSongRun() {
+            isPlaying = false;
+
+            // Stop audio playback
+            if (audioSource) {
+                try { audioSource.stop(); } catch (e) { }
+            }
+            // Pause video if active
+            if (mediaType === 'video' && bgVideo) {
+                bgVideo.pause();
+            }
+
+            // Clear notes/trails off screen
+            document.querySelectorAll('.note, .hold-trail').forEach(n => n.remove());
+
+            // Reset Start Button back to initial state
+        }
+
+
+        // --- COMBINED HIT & SPAM DETECTION ---
+        function processKeyPress(lane) {
+            const songTime = getCurrentSongTime();
+            let hitTarget = null;
+            let minDelta = Infinity;
+
+            // Search for notes inside the 140ms hit window
+            chart.forEach(note => {
+                if (note.lane === lane && !note.hit && !note.completed) {
+                    const delta = Math.abs(songTime - note.time);
+                    if (delta < minDelta && delta <= 140) {
+                        minDelta = delta;
+                        hitTarget = note;
+                    }
+                }
+            });
+
+            if (hitTarget) {
+                // === SUCCESSFUL HIT ===
+                hitTarget.hit = true;
+                const laneColors = ['#ff0055', '#00e5ff', '#ffb700', '#00ff66'];
+                spawnParticles(lane, laneColors[lane]);
+                triggerStageShake();
+
+                if (hitTarget.isHold) {
+                    hitTarget.holding = true;
+                } else {
+                    hitTarget.completed = true;
+                    if (hitTarget.element) { hitTarget.element.remove(); hitTarget.element = null; }
+                }
+
+                if (minDelta <= 50) {
+                    triggerJudgement('PERFECT');
+                    score += (isFeverActive ? 600 : 300);
+                } else {
+                    triggerJudgement('GREAT');
+                    score += (isFeverActive ? 300 : 150);
+                }
+
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+                health = Math.min(100, health + 4);
+                addFever(8);
+                updateStats();
+
+            } else {
+                // === SPAM PENALTY (Pressed key with nothing in hitbox) ===
+                triggerJudgement('MISS');
+
+                // Deduct 100 points (clamped to 0 minimum)
+                score = Math.max(0, score - 100);
+
+                combo = 0;                        // Reset combo
+                health = Math.max(0, health - 8);  // Reduce health
+                updateStats();
+            }
+        }
+
+        window.addEventListener('keyup', (e) => {
+            if (activeBindingIndex !== null) return;
+            const keyIndex = KEYS.indexOf(e.key.toLowerCase());
+            if (keyIndex !== -1) {
+                keyHoldStates[keyIndex] = false;
+                document.getElementById(`key-${keyIndex}`).classList.remove('active');
+                releaseHold(keyIndex);
+            }
+        });
+
+        function stopAudioSource() {
+            if (audioSource) {
+                try { audioSource.stop(); audioSource.disconnect(); } catch (e) { }
+                audioSource = null;
+            }
+            if (bgVideo) {
+                bgVideo.pause();
+                bgVideo.currentTime = 0;
+            }
+        }
+
+        bgInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                bgVideo.style.display = 'none';
+                bgContainer.style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
+            }
+        });
+
+        mediaInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            currentFileName = file.name.replace(/\.[^/.]+$/, "");
+            stopAudioSource();
+            const fileUrl = URL.createObjectURL(file);
+
+            if (file.type.startsWith('video/')) {
+                mediaType = 'video';
+                bgVideo.src = fileUrl;
+                bgVideo.style.display = 'block';
+            } else {
+                mediaType = 'audio';
+                bgVideo.style.display = 'none';
+            }
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                generateChart();
+                startBtn.textContent = "Start Game";
+            } catch (err) {
+                alert("Error loading media file.");
+            }
+        });
+
+        difficultySelect.addEventListener('change', () => { if (audioBuffer) generateChart(); });
+
+        function generateChart() {
+            if (!audioBuffer) return;
+            const diffSettings = DIFFICULTIES[difficultySelect.value];
+            chart = [];
+            const rawData = audioBuffer.getChannelData(0);
+            const sampleRate = audioBuffer.sampleRate;
+            const chunkSize = Math.floor(sampleRate / 40);
+
+            let energies = [];
+            for (let i = 0; i < rawData.length; i += chunkSize) {
+                let sum = 0;
+                for (let j = 0; j < chunkSize && (i + j) < rawData.length; j++) {
+                    sum += rawData[i + j] * rawData[i + j];
+                }
+                energies.push({ time: (i / sampleRate) * 1000, energy: Math.sqrt(sum / chunkSize) });
+            }
+
+            const avgEnergy = energies.reduce((acc, curr) => acc + curr.energy, 0) / energies.length;
+            const threshold = avgEnergy * diffSettings.multiplier;
+
+            let lastNoteTime = -500;
+            energies.forEach((point) => {
+                if (point.energy > threshold && (point.time - lastNoteTime) >= diffSettings.minGapMs) {
+                    const lane1 = Math.floor(Math.random() * LANE_COUNT);
+                    const isHold = Math.random() < diffSettings.holdRatio;
+                    const duration = isHold ? Math.floor(Math.random() * 500 + 350) : 0;
+
+                    chart.push({
+                        lane: lane1,
+                        time: point.time,
+                        duration: duration,
+                        isHold: isHold,
+                        hit: false,
+                        holding: false,
+                        completed: false,
+                        element: null,
+                        trailEl: null
+                    });
+
+                    if (diffSettings.allowDoubles && Math.random() > 0.6) {
+                        let lane2 = Math.floor(Math.random() * LANE_COUNT);
+                        while (lane2 === lane1) lane2 = Math.floor(Math.random() * LANE_COUNT);
+                        chart.push({
+                            lane: lane2,
+                            time: point.time,
+                            duration: 0,
+                            isHold: false,
+                            hit: false,
+                            holding: false,
+                            completed: false,
+                            element: null,
+                            trailEl: null
+                        });
+                    }
+                    lastNoteTime = point.time + duration;
+                }
+            });
+        }
+
+        // --- DYNAMIC START / STOP BUTTON HANDLER ---
+        startBtn.addEventListener('click', () => {
+            if (typeof playSound === 'function');
+
+            if (isPlaying) {
+                // IF SONG IS RUNNING -> STOP THE RUN
+                smoothSongEnd();
+            } else {
+                // IF GAME IS IDLE -> START THE SONG
+                startGame();
+            }
+        });
+
+        // --- 3-SECOND COUNTDOWN SYSTEM ---
+        function startCountdown(onComplete) {
+            const countdownEl = document.getElementById('countdown-overlay');
+            let count = 3;
+
+            countdownEl.textContent = count;
+            countdownEl.style.display = 'block';
+            countdownEl.style.transform = 'translate(-50%, -50%) scale(1.5)';
+            countdownEl.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
+            countdownEl.style.opacity = '1';
+
+            const interval = setInterval(() => {
+                count--;
+
+                if (count > 0) {
+                    countdownEl.textContent = count;
+                    // Pulse animation for each number
+                    countdownEl.style.transform = 'translate(-50%, -50%) scale(1.6)';
+                    setTimeout(() => {
+                        countdownEl.style.transform = 'translate(-50%, -50%) scale(1.0)';
+                    }, 100);
+                } else if (count === 0) {
+                    countdownEl.textContent = 'GO!';
+                    countdownEl.style.color = '#ff007f';
+                    countdownEl.style.textShadow = '0 0 35px #ff007f, 0 0 10px #ffffff';
+                    countdownEl.style.transform = 'translate(-50%, -50%) scale(1.8)';
+                } else {
+                    clearInterval(interval);
+                    countdownEl.style.display = 'none';
+                    if (typeof onComplete === 'function') onComplete();
+                }
+            }, 800); // 800ms per step gives a fast, energetic rhythm count
+        }
+
+        // --- UPDATED START GAME FUNCTION ---
+        function startGame() {
+            if (!audioBuffer) return alert("Please select a song or video file!");
+            startBtn.textContent = 'Stop Run';
+            stopAudioSource();
+            resizeCanvas();
+            document.querySelectorAll('.note, .hold-trail').forEach(n => n.remove());
+
+            // Reset Game State
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            health = 100;
+            feverEnergy = 0;
+            isFeverActive = false;
+            particles = [];
+            hitRipples = [];
+            keyHoldStates = [false, false, false, false];
+            updateStats();
+
+            // Disable start button during countdown
+            startBtn.disabled = true;
+
+            // Run the 3-second countdown BEFORE starting audio & notes
+            startCountdown(() => {
+                startBtn.disabled = false;
+
+                const speed = parseFloat(speedSelect.value);
+
+                gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+
+                audioSource = audioCtx.createBufferSource();
+                audioSource.buffer = audioBuffer;
+                audioSource.playbackRate.value = speed;
+                audioSource.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                if (mediaType === 'video') {
+                    bgVideo.playbackRate = speed;
+                    bgVideo.currentTime = 0;
+                    bgVideo.play();
+                }
+
+                startTime = performance.now();
+                audioSource.start(0);
+                isPlaying = true;
+
+                audioSource.onended = () => {
+                    if (isPlaying) smoothSongEnd();
+                };
+
+                requestAnimationFrame(gameLoop);
+            });
+        }
+
+        function smoothSongEnd() {
+            // Reset game state immediately
+            isPlaying = false;
+
+            // Stop audio immediately
+            if (audioSource) {
+                try { audioSource.stop(); } catch (e) { }
+            }
+            if (mediaType === 'video' && bgVideo) {
+                bgVideo.pause();
+            }
+
+            // Reset button state
+            if (startBtn) {
+                startBtn.textContent = 'Start Game';
+                startBtn.disabled = false;
+            }
+
+            // Save score and display modal right away
+            saveScoreLog(currentFileName, difficultySelect.value, score, maxCombo);
+            renderLogsUI();
+            logsModal.style.display = 'flex';
+        }
+
+        function getCurrentSongTime() {
+            const speed = parseFloat(speedSelect.value);
+            return ((mediaType === 'video' && !bgVideo.paused) ? bgVideo.currentTime * 1000 : (performance.now() - startTime)) * speed;
+        }
+
+        /* Spawn High Energy Visual Particles */
+        function spawnParticles(laneIndex, colorHex) {
+            if (!config.vfxEnabled || config.particleQuality === 'low') return;
+            const laneWidth = canvas.width / LANE_COUNT;
+            const originX = laneIndex * laneWidth + laneWidth / 2;
+            const originY = canvas.height - 70;
+
+            const count = config.particleQuality === 'high' ? 22 : 10;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 8 + 2;
+                particles.push({
+                    x: originX,
+                    y: originY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 2,
+                    radius: Math.random() * 4 + 2,
+                    color: colorHex,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.02
+                });
+            }
+
+            hitRipples.push({
+                x: originX,
+                y: originY,
+                radius: 10,
+                maxRadius: 45,
+                color: colorHex,
+                alpha: 0.8
+            });
+
+        }
+
+        function renderVFX() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!config.vfxEnabled) return;
+
+            // Draw Ripples
+            for (let i = hitRipples.length - 1; i >= 0; i--) {
+                let r = hitRipples[i];
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = r.color;
+                ctx.globalAlpha = r.alpha;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                r.radius += 3.5;
+                r.alpha -= 0.05;
+                if (r.alpha <= 0) hitRipples.splice(i, 1);
+            }
+
+            // Draw Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.fill();
+
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            const diffSettings = DIFFICULTIES[difficultySelect.value];
+            const songTime = getCurrentSongTime();
+            const stageHeight = gameStage.clientHeight;
+            const targetY = stageHeight - 70;
+
+            // Pulse background slightly on ambient grid
+            if (ambientGrid && config.flashingEnabled) {
+                ambientGrid.style.opacity = `${0.2 + (Math.sin(songTime / 100) * 0.1)}`;
+            }
+
+            chart.forEach(note => {
+                const noteTimeOffset = note.time - songTime;
+                const noteHeadY = targetY - (noteTimeOffset * diffSettings.noteSpeed);
+
+                if (note.isHold) {
+                    const holdLengthPx = note.duration * diffSettings.noteSpeed;
+                    const noteTailY = noteHeadY - holdLengthPx;
+
+                    if (noteHeadY > -holdLengthPx - 100 && noteTailY < stageHeight + 100 && !note.completed) {
+                        if (!note.element) {
+                            const el = document.createElement('div');
+                            el.className = 'note';
+                            const trail = document.createElement('div');
+                            trail.className = 'hold-trail';
+                            document.getElementById(`lane-${note.lane}`).appendChild(trail);
+                            document.getElementById(`lane-${note.lane}`).appendChild(el);
+                            note.element = el;
+                            note.trailEl = trail;
+                        }
+
+                        if (note.holding) {
+                            const clampedHeadY = targetY;
+                            const currentTrailHeight = Math.max(0, clampedHeadY - noteTailY);
+
+                            note.element.style.transform = `translate3d(0, ${clampedHeadY}px, 0)`;
+                            note.trailEl.style.transform = `translate3d(0, ${noteTailY}px, 0)`;
+                            note.trailEl.style.height = `${currentTrailHeight}px`;
+
+                            score += isFeverActive ? 2 : 1;
+                            addFever(0.1);
+                            updateStats();
+
+                            if (Math.random() < 0.3) {
+                                const laneColors = ['#ff0055', '#00e5ff', '#ffb700', '#00ff66'];
+                                spawnParticles(note.lane, laneColors[note.lane]);
+                            }
+
+                            if (songTime >= note.time + note.duration) {
+                                note.completed = true;
+                                note.holding = false;
+                                if (note.element) note.element.remove();
+                                if (note.trailEl) note.trailEl.remove();
+                                note.element = null;
+                                note.trailEl = null;
+                                triggerJudgement('PERFECT');
+                            }
+                        } else {
+                            note.element.style.transform = `translate3d(0, ${noteHeadY}px, 0)`;
+                            note.trailEl.style.transform = `translate3d(0, ${noteTailY}px, 0)`;
+                            note.trailEl.style.height = `${holdLengthPx}px`;
+                        }
+                    } else if (noteTailY >= stageHeight + 20 && note.element) {
+                        if (note.element) note.element.remove();
+                        if (note.trailEl) note.trailEl.remove();
+                        note.element = null;
+                        note.trailEl = null;
+                    }
+                } else {
+                    if (noteHeadY > -50 && noteHeadY < stageHeight + 50 && !note.hit) {
+                        if (!note.element) {
+                            const el = document.createElement('div');
+                            el.className = 'note';
+                            document.getElementById(`lane-${note.lane}`).appendChild(el);
+                            note.element = el;
+                        }
+                        note.element.style.transform = `translate3d(0, ${noteHeadY}px, 0)`;
+                    } else if (noteHeadY >= stageHeight + 20 && note.element) {
+                        note.element.remove();
+                        note.element = null;
+                    }
+                }
+
+                // Missed Note Verification
+                if (!note.hit && !note.completed && songTime > (note.time + (note.isHold ? note.duration : 0) + 140)) {
+                    note.hit = true;
+                    note.completed = true;
+                    if (note.element) { note.element.remove(); note.element = null; }
+                    if (note.trailEl) { note.trailEl.remove(); note.trailEl = null; }
+                    triggerJudgement('MISS');
+                    combo = 0;
+                    health = Math.max(0, health - 12);
+                    updateStats();
+                }
+            });
+
+            renderVFX();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerStageShake() {
+            if (config.shakeIntensity <= 0) return;
+            gameStage.classList.remove('shake');
+            void gameStage.offsetWidth; // Trigger reflow
+            gameStage.classList.add('shake');
+        }
+
+        function checkHit(lane) {
+            const songTime = getCurrentSongTime();
+            let hitTarget = null;
+            let minDelta = Infinity;
+
+            chart.forEach(note => {
+                if (note.lane === lane && !note.hit && !note.completed) {
+                    const delta = Math.abs(songTime - note.time);
+                    if (delta < minDelta && delta <= 140) {
+                        minDelta = delta;
+                        hitTarget = note;
+                    }
+                }
+            });
+
+            if (hitTarget) {
+                hitTarget.hit = true;
+                const laneColors = ['#ff0055', '#00e5ff', '#ffb700', '#00ff66'];
+                spawnParticles(lane, laneColors[lane]);
+                triggerStageShake();
+
+                if (hitTarget.isHold) {
+                    hitTarget.holding = true;
+                } else {
+                    hitTarget.completed = true;
+                    if (hitTarget.element) { hitTarget.element.remove(); hitTarget.element = null; }
+                }
+
+                if (minDelta <= 50) {
+                    triggerJudgement('PERFECT');
+                    score += (isFeverActive ? 600 : 300);
+                } else {
+                    triggerJudgement('GREAT');
+                    score += (isFeverActive ? 300 : 150);
+                }
+
+                combo++;
+                if (combo > maxCombo) maxCombo = combo;
+                health = Math.min(100, health + 4);
+                addFever(8);
+                updateStats();
+            }
+        }
+
+        function releaseHold(lane) {
+            const songTime = getCurrentSongTime();
+            chart.forEach(note => {
+                if (note.lane === lane && note.isHold && note.holding && !note.completed) {
+                    note.holding = false;
+                    if (songTime < (note.time + note.duration - 100)) {
+                        triggerJudgement('MISS');
+                        combo = 0;
+                        note.completed = true;
+                        if (note.element) { note.element.remove(); note.element = null; }
+                        if (note.trailEl) { note.trailEl.remove(); note.trailEl = null; }
+                        updateStats();
+                    }
+                }
+            });
+        }
+
+        function addFever(amt) {
+            if (isFeverActive) return;
+            feverEnergy = Math.min(100, feverEnergy + amt);
+            if (feverEnergy >= 100) {
+                isFeverActive = true;
+                gameStage.classList.add('fever-mode');
+                feverBar.style.width = '100%';
+                multiplierVal.textContent = "2x FEVER";
+                feverBox.classList.add('fever-active');
+
+                let feverTimer = setInterval(() => {
+                    feverEnergy -= 5;
+                    feverBar.style.width = `${feverEnergy}%`;
+                    if (feverEnergy <= 0) {
+                        clearInterval(feverTimer);
+                        isFeverActive = false;
+                        gameStage.classList.remove('fever-mode');
+                        multiplierVal.textContent = "1x";
+                        feverBox.classList.remove('fever-active');
+                    }
+                }, 300);
+            } else {
+                feverBar.style.width = `${feverEnergy}%`;
+            }
+        }
+
+        function flashLane(laneIndex) {
+            if (!config.flashingEnabled) return;
+            const laneEl = document.getElementById(`lane-${laneIndex}`);
+            laneEl.classList.add(`flash-${laneIndex}`);
+            setTimeout(() => laneEl.classList.remove(`flash-${laneIndex}`), 80);
+        }
+
+        function triggerJudgement(text) {
+            judgementEl.textContent = text;
+            judgementEl.className = text.toLowerCase();
+            judgementEl.style.opacity = '1';
+            judgementEl.style.transform = 'scale(1.25)';
+
+            comboPopEl.textContent = combo;
+            comboPopEl.classList.add('active');
+
+            setTimeout(() => {
+                judgementEl.style.opacity = '0';
+                judgementEl.style.transform = 'scale(1.0)';
+                comboPopEl.classList.remove('active');
+            }, 250);
+        }
+
+        function updateStats() {
+            scoreEl.textContent = score;
+            comboEl.textContent = combo;
+            healthBar.style.width = `${health}%`;
+        }
+        // --- UNIFIED GAME RESET & CLEANUP ---
+        function resetToStartState() {
+            isPlaying = false;
+
+            // 1. Stop audio safely
+            if (audioSource) {
+                audioSource.onended = null; // Prevent duplicate execution
+                try { audioSource.stop(); } catch (e) { }
+                audioSource = null;
+            }
+
+            // 2. Pause video if applicable
+            if (mediaType === 'video' && bgVideo) {
+                bgVideo.pause();
+            }
+
+            // 3. Clear any active notes/trails from the screen
+            document.querySelectorAll('.note, .hold-trail').forEach(n => n.remove());
+
+            // 4. Force Start Button back to original state
+            if (startBtn) {
+                startBtn.textContent = 'Start Game';
+                startBtn.disabled = false;
+            }
+        }
+
+        // Called when song completes on its own
+        function endSongRun() {
+            if (!isPlaying) return; // Guard against multi-triggers
+
+            // Save stats before resetting
+            const songName = typeof currentFileName !== 'undefined' ? currentFileName : 'Track';
+            const diff = typeof selectedDiff !== 'undefined' ? selectedDiff : 'NORMAL';
+
+            if (typeof saveScoreLog === 'function') {
+                saveScoreLog(songName, diff, score, maxCombo);
+            }
+
+            // Reset button & audio state
+            resetToStartState();
+
+            // Show summary
+            alert(`SONG COMPLETE!\n\nFinal Score: ${score.toLocaleString()}\nMax Combo: ${maxCombo}x`);
+        }
+    </script>
+
+
+
+</html>
